@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "build": "mkdir -p public && cp -r src/static/* public/ || true",
+    "build": "mkdir -p public && touch public/.gitkeep",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
