@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>穿搭推荐系统</title>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        .api-info {
+            background-color: #f8f9fa;
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        code {
+            background-color: #f1f1f1;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-family: Consolas, Monaco, 'Andale Mono', monospace;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .endpoint {
+            margin-bottom: 30px;
+        }
+        .method {
+            display: inline-block;
+            padding: 3px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .post {
+            background-color: #61affe;
+            color: white;
+        }
+        .get {
+            background-color: #49cc90;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>穿搭推荐系统 API</h1>
+    
+    <div class="api-info">
+        <p>服务状态: <span id="status">检查中...</span></p>
+        <p>API 根路径: <code>/api</code></p>
+    </div>
+    
+    <div class="endpoint">
+        <h2><span class="method post">POST</span> /api/generate_outfit</h2>
+        <p>生成穿搭方案</p>
+        <pre><code>{
+  "weather": "晴天",
+  "lucky_color": "蓝色",
+  "schedule": "商务会议",
+  "scene": "办公室",
+  "features": "简约干练",
+  "additional_info": "喜欢正式一点的风格"
+}</code></pre>
+    </div>
+    
+    <div class="endpoint">
+        <h2><span class="method post">POST</span> /api/edit_outfit</h2>
+        <p>编辑穿搭方案</p>
+        <pre><code>{
+  "previous_plan": "...",
+  "additional_info": "...",
+  "edited_plan": "想要更休闲一点的风格"
+}</code></pre>
+    </div>
+    
+    <div class="endpoint">
+        <h2><span class="method post">POST</span> /api/analyze_person</h2>
+        <p>分析图片中的穿搭</p>
+        <pre><code>{
+  "image_path": "图片URL" 
+  // 或者
+  "image_data": "base64编码的图片数据"
+}</code></pre>
+    </div>
+    
+    <div class="endpoint">
+        <h2><span class="method get">GET</span> /api/health</h2>
+        <p>检查API服务状态</p>
+    </div>
+    
+    <script>
+        // 检查API状态
+        fetch('/api/health')
+            .then(response => {
+                if(response.ok) {
+                    document.getElementById('status').textContent = '正常运行';
+                    document.getElementById('status').style.color = '#4CAF50';
+                    return response.json();
+                }
+                throw new Error('服务异常');
+            })
+            .catch(error => {
+                document.getElementById('status').textContent = '服务不可用';
+                document.getElementById('status').style.color = '#f44336';
+                console.error('健康检查失败:', error);
+            });
+    </script>
+</body>
+</html> 

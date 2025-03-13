@@ -703,4 +703,4 @@ async function startApp() {
 startApp().catch(err => {
   logger.error(`启动应用失败: ${err.message}`);
   process.exit(1);
-});  
+}); 
