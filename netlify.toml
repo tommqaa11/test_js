@@ -1,5 +1,5 @@
 [build]
-  command = "npm install && npm run build && cp public/index.html public/index.html || echo 'index.html exists'"
+  command = "npm install"
   functions = "netlify/functions"
   publish = "public"
 
