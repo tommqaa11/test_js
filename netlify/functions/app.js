@@ -1,13 +1,9 @@
 const express = require('express');
+const serverless = require('serverless-http');
 const axios = require('axios');
 const dotenv = require('dotenv');
-const { NacosNamingClient } = require('nacos');
 const { v4: uuidv4 } = require('uuid');
-const os = require('os');
-const fs = require('fs');
 const path = require('path');
-const { Readable } = require('stream');
-const sharp = require('sharp');
 
 // 加载环境变量
 dotenv.config();
@@ -19,104 +15,6 @@ const logger = {
   debug: (message) => console.log(`[DEBUG] ${new Date().toISOString()} - ${message}`),
   warning: (message) => console.warn(`[WARNING] ${new Date().toISOString()} - ${message}`)
 };
-
-// 服务器配置
-const SERVER_IP = process.env.SERVER_IP || getLocalIP();
-const SERVER_PORT = process.env.SERVER_PORT || 5001;
-
-// Nacos配置
-const NACOS_SERVER_ADDR = process.env.NACOS_SERVER_ADDR || "113.44.56.231:8848";
-const NACOS_NAMESPACE = process.env.NACOS_NAMESPACE || "public";
-const SERVICE_NAME = "STYLE_AI@@recommended-agent";
-
-// 获取本地IP地址
-function getLocalIP() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return '127.0.0.1';
-}
-
-// 创建Nacos客户端
-const nacosClient = new NacosNamingClient({
-  serverList: NACOS_SERVER_ADDR,
-  namespace: NACOS_NAMESPACE,
-  username: 'admin',
-  password: 'admin'
-});
-
-// 注册服务到Nacos
-async function registerService() {
-  try {
-    // 服务实例信息
-    const instance = {
-      ip: SERVER_IP,
-      port: SERVER_PORT,
-      metadata: {
-        'preserved.register.source': 'NODE_SDK',
-        'service.type': 'recommended_agent',
-        'version': '1.0.0',
-        'group': 'STYLE_AI'
-      },
-      healthy: true,
-      weight: 1.0,
-      enabled: true,
-      ephemeral: true // 临时实例
-    };
-
-    // 注册服务实例
-    await nacosClient.registerInstance(SERVICE_NAME, {
-      ip: SERVER_IP,
-      port: SERVER_PORT,
-      metadata: instance.metadata,
-      groupName: 'STYLE_AI'
-    });
-
-    logger.info(`成功将服务注册到Nacos: ${SERVICE_NAME}`);
-  } catch (e) {
-    logger.error(`注册服务到Nacos时出错: ${e.message}`);
-  }
-}
-
-// 从Nacos注销服务
-async function deregisterService() {
-  try {
-    await nacosClient.deregisterInstance(SERVICE_NAME, {
-      ip: SERVER_IP,
-      port: SERVER_PORT,
-      groupName: 'STYLE_AI'
-    });
-
-    logger.info(`成功从Nacos注销服务: ${SERVICE_NAME}`);
-  } catch (e) {
-    logger.error(`从Nacos注销服务时出错: ${e.message}`);
-  }
-}
-
-// 发送心跳到Nacos
-async function sendHeartbeat() {
-  try {
-    await nacosClient.sendInstanceBeat(SERVICE_NAME, {
-      ip: SERVER_IP,
-      port: SERVER_PORT,
-      groupName: 'STYLE_AI',
-      metadata: {
-        'preserved.register.source': 'NODE_SDK',
-        'service.type': 'file-upload',
-        'version': '1.0.0',
-        'group': 'STYLE_AI'
-      }
-    });
-    logger.debug("成功发送心跳到Nacos");
-  } catch (e) {
-    logger.error(`发送心跳到Nacos时出错: ${e.message}`);
-  }
-}
 
 // 初始化Express应用
 const app = express();
@@ -354,8 +252,11 @@ function processLLMResponse(response) {
   };
 }
 
+// 创建API路由前缀
+const router = express.Router();
+
 // 生成穿搭方案API端点
-app.post('/generate_outfit', async (req, res) => {
+router.post('/generate_outfit', async (req, res) => {
   try {
     const data = req.body;
     
@@ -397,7 +298,7 @@ app.post('/generate_outfit', async (req, res) => {
 });
 
 // 编辑穿搭方案API端点
-app.post('/edit_outfit', async (req, res) => {
+router.post('/edit_outfit', async (req, res) => {
   try {
     const data = req.body;
     
@@ -422,13 +323,9 @@ app.post('/edit_outfit', async (req, res) => {
 });
 
 // 健康检查路由
-app.get('/health', (req, res) => {
+router.get('/health', (req, res) => {
   res.json({
-    status: 'healthy',
-    server_ip: SERVER_IP,
-    service_name: SERVICE_NAME,
-    nacos_server: NACOS_SERVER_ADDR,
-    nacos_namespace: NACOS_NAMESPACE
+    status: 'healthy'
   });
 });
 
@@ -575,7 +472,7 @@ const imageAnalysisPrompt = `
 `;
 
 // 分析图片中人物信息API端点
-app.post('/analyze_person', async (req, res) => {
+router.post('/analyze_person', async (req, res) => {
   try {
     const data = req.body;
     
@@ -675,32 +572,8 @@ app.post('/analyze_person', async (req, res) => {
   }
 });
 
-// 启动应用
-async function startApp() {
-  // 注册服务到Nacos
-  await registerService();
-  
-  // 启动心跳定时器
-  const heartbeatInterval = setInterval(sendHeartbeat, 5000);
-  
-  // 启动Express服务器
-  const server = app.listen(SERVER_PORT, '0.0.0.0', () => {
-    logger.info(`服务已启动，监听端口: ${SERVER_PORT}`);
-  });
-  
-  // 处理进程退出
-  process.on('SIGINT', async () => {
-    clearInterval(heartbeatInterval);
-    await deregisterService();
-    server.close(() => {
-      logger.info('应用已正常关闭');
-      process.exit(0);
-    });
-  });
-}
+// 为路由添加API前缀
+app.use('/api', router);
 
-// 启动应用
-startApp().catch(err => {
-  logger.error(`启动应用失败: ${err.message}`);
-  process.exit(1);
-}); 
+// 导出lambda函数处理器
+exports.handler = serverless(app); 
